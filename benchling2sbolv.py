@@ -46,32 +46,33 @@ ANN_PARTS_MAPPING = [
 #   - option ``label_y_offset`` is multiplied by -1 for a part oriented in
 #     reverse.
 #   - options specified in ``RENDER_OPT[key]`` as functions are evaluated with
-#     the part's label as an argument before being passed.
+#     the calculated part's label width as an argument before being passed.
 #   - CDS' ``color`` and ``label_color`` will be replaced as specified in
 #     ``plot_sequence()``'s arguments ``cds_colors`` and ``cds_label_colors``.
 RENDER_OPT = {
     'backbone_linewidth': 1.5,
-    'Promoter': {'start_pad': lambda label: max(1.4*len(label) - 3.5, 2.5),
-                 'end_pad': lambda label: max(1.4*len(label) - 3.5, 2.5),
+    'Promoter': {'start_pad': lambda lw: max((lw - 10)/2, 0) + 2,
+                 'end_pad': lambda lw: max((lw - 10)/2, 0) + 2,
                  'label_y_offset': -4,
                  },
-    'RNACleavageSite': {'start_pad': lambda label: max(1.5*len(label) - 3.5, 2.5),
-                        'end_pad': lambda label: max(1.5*len(label) - 3.5, 2.5),
+    'RNACleavageSite': {'start_pad': lambda lw: max((lw - 5)/2, 0) + 2,
+                        'end_pad': lambda lw: max((lw - 5)/2, 0) + 2,
                         'label_y_offset': -4,
             },
-    'RBS': {'start_pad': lambda label: max(1.5*len(label) - 3.5, 2.5),
-            'end_pad': lambda label: max(1.5*len(label) - 3.5, 2.5),
+    'RBS': {'start_pad': lambda lw: max((lw - 10)/2, 0) + 2,
+            'end_pad': lambda lw: max((lw - 10)/2, 0) + 2,
             'label_y_offset': -4,
             },
     'CDS': {'start_pad': 2,
             'end_pad': 2,
-            'x_extent': lambda label: max(len(label)*4, 25),
+            'x_extent': lambda lw: max(lw, 10) + 15,
             'label_x_offset': -1,
             'label_style': 'italic',
             },
-    'Terminator': {'start_pad': lambda label: max(1.5*len(label) - 3.5, 2.5),
-                   'end_pad': lambda label: max(1.5*len(label) - 3.5, 2.5),
+    'Terminator': {'start_pad': lambda lw: max((lw - 10)/2, 0) + 2,
+                   'end_pad': lambda lw: max((lw - 10)/2, 0) + 2,
                    'label_y_offset': -4,
+                   'label_size': 7,
                    },
     '5ChromosomalLocus': {'dashed_end': True,
                           'label_y_offset': 4,
@@ -118,6 +119,8 @@ def plot_sequence(seq=None,
                   cds_label_colors={},
                   chromosomal_locus=None,
                   ax=None,
+                  ax_xlim=(0, 250),
+                  ax_ylim=(-15, 15),
                   savefig=None):
     """
     Plot a specified benchling sequence as SBOL visual
@@ -150,6 +153,8 @@ def plot_sequence(seq=None,
         by `chromosomal_locus` on the left glyph.
     ax : matplotlib.axes, optional
         Axes to draw into.
+    ax_xlim, ax_ylim : tuple-like, optional
+        Axes limits.
     savefig : str, optional
         If specified, save figure with a filename given by `savefig`.
 
@@ -195,11 +200,19 @@ def plot_sequence(seq=None,
 
     # Sort by start position
     annotations = sorted(annotations, key=lambda x: x.start)
+
+    # Initialize plot
+    if ax is None:
+        fig, ax = pyplot.subplots()
+    # Set axis limits and aspect right away
+    # This allows for a more precise estimation of label widths later on
+    ax.set_xlim(ax_xlim)
+    ax.set_ylim(ax_ylim)
+    ax.set_aspect('equal')
     
     # Iterate and select parts to be plotted
     parts = []
     for annotation in annotations:
-        # print(annotation)
         # Iterate through mapping and select appropriate part type
         match = False
         for mapping in ANN_PARTS_MAPPING:
@@ -218,7 +231,7 @@ def plot_sequence(seq=None,
             if annotation.strand is not None:
                 part['fwd'] = not (annotation.strand==-1)
             # Label is taken from the labels dictionary, or from the name.
-            label = labels.get(annotation.name, annotation.name)
+            label = labels.get(part['name'], part['name'])
             # Get rendering options
             opts = {}
             opts['label'] = label
@@ -231,11 +244,27 @@ def plot_sequence(seq=None,
             # Get opts from RENDER_OPT if available
             part_type_opts = RENDER_OPT.get(part['type'], {})
             # Some elements in RENDER_OPT can be functions, in which case the
-            # actual value is computed by calling that function with the label
+            # actual value is computed by calling that function with label_width
             # as an argument.
+            # First, calculate label_width
+            # Method from "https://stackoverflow.com/questions/24581194/\
+            # matplotlib-text-bounding-box-dimensions"
+            label_size = part_type_opts.get('label_size', 7)
+            label_style = part_type_opts.get('label_style', 'normal')
+            t = ax.text(0,
+                        0,
+                        label,
+                        fontsize=label_size,
+                        fontstyle=label_style)
+            bb = t.get_window_extent(renderer=ax.figure.canvas.get_renderer())
+            bb_datacoords = bb.transformed(ax.transData.inverted())
+            label_width = bb_datacoords.width
+            t.remove()
+            # Iterate over options
             for k, v in part_type_opts.items():
                 if hasattr(v, '__call__'):
-                    opts[k] = v(label)
+                    # Evaluate option based on label width
+                    opts[k] = v(label_width)
                 else:
                     # Special case: label_y_offset is modified depending on the
                     # orientation of the part
@@ -281,22 +310,15 @@ def plot_sequence(seq=None,
         # Save glyphs
         parts = [cl5] + parts + [cl3]
 
-    # Plot
-    if ax is None:
-        fig, ax = pyplot.subplots()
-
     # Create the DNAplotlib renderer
     dr = dnaplotlib.DNARenderer(
         linewidth=RENDER_OPT.get('backbone_linewidth', 1))
 
     # Redend the DNA to axis
     start, end = dr.renderDNA(ax, parts, dr.SBOL_part_renderers())
-    ax.set_xlim([start, end])
-    ax.set_ylim([-15,15])
-    ax.set_aspect('equal')
     ax.set_xticks([])
     ax.set_yticks([])
     ax.axis('off')
 
     if savefig is not None:
-        pyplot.savefig(savefig, dpi=300)
+        pyplot.savefig(savefig, bbox_inches='tight', dpi=300)
