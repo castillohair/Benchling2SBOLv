@@ -39,16 +39,21 @@ ANN_PARTS_MAPPING = [
 # exception of ``backbone_linewidth``, every key is the name of a dnaplotlib
 # part type. Each value given by a key is a dictionary with options to be passed
 # to dnaplotlib, via a part's ``opts`` parameter.
-# Values that are not passed directly are the following:
+# A few caveats:
 #   - a value with the key ``label`` is added by ``plot_sequence()``, either
 #     from the part's name, or as specified in ``plot_sequence()``'s argument
 #     ``labels`` if present.
-#   - option ``label_y_offset`` is multiplied by -1 for a part oriented in
-#     reverse.
+#   - options ``label_x_offset`` and ``label_y_offset`` are multiplied by -1 for
+#     a part oriented in reverse.
 #   - options specified in ``RENDER_OPT[key]`` as functions are evaluated with
 #     the calculated part's label width as an argument before being passed.
 #   - CDS' ``color`` and ``label_color`` will be replaced as specified in
 #     ``plot_sequence()``'s arguments ``cds_colors`` and ``cds_label_colors``.
+#   - Options under the keys ``CDS`` and ``CDSFragment`` are used for CDS
+#     fragments except for the last one when a CDS is split via
+#     ``plot_sequence()``'s ``cds_split_char`` argument. In this case, when
+#     the same option is specified under ``CDS`` and ``CDSFragment``, the one
+#     under ``CDSFragment`` takes precedence.
 RENDER_OPT = {
     'backbone_linewidth': 1.5,
     'Promoter': {'start_pad': lambda lw: max((lw - 10)/2, 0) + 2,
@@ -65,10 +70,13 @@ RENDER_OPT = {
             },
     'CDS': {'start_pad': 2,
             'end_pad': 2,
-            'x_extent': lambda lw: max(lw, 10) + 15,
-            'label_x_offset': -1,
+            'x_extent': lambda lw: max(lw, 10) + 14,
+            'label_x_offset': -1.5,
             'label_style': 'italic',
             },
+    'CDSFragment': {'x_extent': lambda lw: max(lw, 10) + 12,
+                    'label_x_offset': 0,
+                    },
     'Terminator': {'start_pad': lambda lw: max((lw - 10)/2, 0) + 2,
                    'end_pad': lambda lw: max((lw - 10)/2, 0) + 2,
                    'label_y_offset': -4,
@@ -115,6 +123,7 @@ def plot_sequence(seq=None,
                   start_position=None,
                   end_position=None,
                   labels={},
+                  cds_split_char='',
                   cds_colors={},
                   cds_label_colors={},
                   chromosomal_locus=None,
@@ -139,6 +148,12 @@ def plot_sequence(seq=None,
         Dictionary with ``name: label`` pairs that specify a glyph's label,
         when the label is different than the name. If a part's name is not
         a key of `labels`, the name will be used as the glyph's label.
+    cds_split_char : str, optionsl
+        If specified, a CDS whose name contains `cds_split_char` as a substring
+        will be split along this substring and shown as a multipart CDS. A
+        multipart CDS looks like a single CDS divided into many fragments, each
+        with its own label and color that can be specified in `labels`,
+        `cds_colors`, and `cds_label_colors`.
     cds_colors : dict, optional
         Dictionary with ``name: color`` pairs that specify a CDS' face
         color, when the color is different than the one specified by
@@ -210,7 +225,7 @@ def plot_sequence(seq=None,
     ax.set_ylim(ax_ylim)
     ax.set_aspect('equal')
     
-    # Iterate and select parts to be plotted
+    # Iterate and extract parts to be plotted
     parts = []
     for annotation in annotations:
         # Iterate through mapping and select appropriate part type
@@ -221,73 +236,171 @@ def plot_sequence(seq=None,
                 break
         # Only add part if matching part has been found
         if match:
-            # Define new part
-            part  = {}
-            part['type'] = mapping['part']
-            part['name'] = annotation.name
-            # Orientation ('fwd') will be False if the reverse strand is
-            # explicitly specified in the annotation, True if any other value,
-            # not specified if None.
-            if annotation.strand is not None:
-                part['fwd'] = not (annotation.strand==-1)
-            # Label is taken from the labels dictionary, or from the name.
-            label = labels.get(part['name'], part['name'])
-            # Get rendering options
-            opts = {}
-            opts['label'] = label
-            # Colors for CDS glyph and label
-            if part['type']=='CDS':
-                if part['name'] in cds_colors:
-                    opts['color'] = cds_colors[part['name']]
-                if part['name'] in cds_label_colors:
-                    opts['label_color'] = cds_label_colors[part['name']]
-            # Get opts from RENDER_OPT if available
-            part_type_opts = RENDER_OPT.get(part['type'], {})
-            # Some elements in RENDER_OPT can be functions, in which case the
-            # actual value is computed by calling that function with label_width
-            # as an argument.
-            # First, calculate label_width
-            # Method from "https://stackoverflow.com/questions/24581194/\
-            # matplotlib-text-bounding-box-dimensions"
-            label_size = part_type_opts.get('label_size', 7)
-            label_style = part_type_opts.get('label_style', 'normal')
-            t = ax.text(0,
-                        0,
-                        label,
-                        fontsize=label_size,
-                        fontstyle=label_style)
-            bb = t.get_window_extent(renderer=ax.figure.canvas.get_renderer())
-            bb_datacoords = bb.transformed(ax.transData.inverted())
-            label_width = bb_datacoords.width
-            t.remove()
-            # Iterate over options
-            for k, v in part_type_opts.items():
-                if hasattr(v, '__call__'):
-                    # Evaluate option based on label width
-                    opts[k] = v(label_width)
-                else:
-                    # Special case: label_y_offset is modified depending on the
-                    # orientation of the part
-                    if k=='label_y_offset':
-                        if ('fwd' in part) and (not part['fwd']):
-                            opts[k] = -v
+            part_type = mapping['part']
+            part_name = annotation.name
+            # Part will be split if type is CDS and a cds_split_char has been
+            # specified.
+            # All resulting parts, but the last one, will be given the temporary
+            # part type "CDSFragment". This is so arrowheads and padding are
+            # modified later to make a continuous multipart CDS glyph.
+            if cds_split_char and mapping['part']=='CDS':
+                part_names = part_name.split(cds_split_char)
+                # Reverse if orientation is reverse
+                if annotation.strand==-1:
+                    part_names = part_names[::-1]
+                for part_index, part_name in enumerate(part_names):
+                    # Define new part
+                    part = {}
+                    if annotation.strand==-1:
+                        if part_index <= 0:
+                            part['type'] = 'CDS'
                         else:
-                            opts[k] = v
-                    # Special case: if type is CDS, and color not already set
-                    # from cds_colors and cds_label_colors, set them here.
-                    elif (k=='color') and \
-                            (part['type']=='CDS') and \
-                            ('color' not in opts):
-                        opts['color'] = v
-                    elif (k=='label_color') and \
-                            (part['type']=='CDS') and \
-                            ('label_color' not in opts):
-                        opts['label_color'] = v
+                            part['type'] = 'CDSFragment'
+                    else:
+                        if part_index < (len(part_names) - 1):
+                            part['type'] = 'CDSFragment'
+                        else:
+                            part['type'] = 'CDS'
+                    part['name'] = part_name
+                    # Orientation ('fwd') will be False if the reverse strand is
+                    # explicitly specified in the annotation, True if any other
+                    # value, not specified if None.
+                    if annotation.strand is not None:
+                        part['fwd'] = not (annotation.strand==-1)
+                    # Save part
+                    parts.append(part)
+            else:
+                # Define new part
+                part  = {}
+                part['type'] = part_type
+                part['name'] = part_name
+                # Orientation ('fwd') will be False if the reverse strand is
+                # explicitly specified in the annotation, True if any other
+                # value, not specified if None.
+                if annotation.strand is not None:
+                    part['fwd'] = not (annotation.strand==-1)
+                # Save part
+                parts.append(part)
+
+    # Construct plotting options for each part
+    for part_index, part in enumerate(parts):
+        # Initialize dictionary with rendering options
+        opts = {}
+
+        # GENERAL TYPE-DEPENDENT RENDERING OPTIONS
+        # ========================================
+
+        # Get opts from RENDER_OPT if available
+        if part['type']=='CDSFragment':
+            # CDSFragment combines options from 'CDS' and 'CDSFragment', with
+            # the latter taking precedence.
+            part_type_opts = RENDER_OPT.get('CDSFragment', {})
+            part_type_opts_cds = RENDER_OPT.get('CDS', {})
+            for k, v in part_type_opts_cds.items():
+                if k not in part_type_opts:
+                    part_type_opts[k] = v
+        else:
+            part_type_opts = RENDER_OPT.get(part['type'], {})
+
+        # PART-SPECIFIC RENDERING OPTIONS
+        # ===============================
+
+        # The following deals with issues specific to the type "CDSFragment"
+        # 'CDSFragment' does not have an arrowhead
+        if part['type']=='CDSFragment':
+            opts['arrowhead_length'] = 0
+            opts['arrowhead_height'] = 0
+        # Correction for label_x_offset
+        # Removing padding will affect how the CDS looks but not the label,
+        # therefore the label offset has to be corrected.
+        label_x_offset_c = 0
+        if ('fwd' in part) and (part['fwd']==False):
+            # Start padding is zero if there is a 'CDS' or CDSFragment' to the
+            # left
+            if part['type']=='CDSFragment':
+                if (part_index > 0) and \
+                        (parts[part_index-1]['type'] in ['CDS', 'CDSFragment']):
+                    opts['end_pad'] = 0
+                    label_x_offset_c += part_type_opts.get('end_pad', 0)/2
+            # End padding is zero if there is a 'CDSFragment' to the right
+            if part['type'] in ['CDS', 'CDSFragment']:
+                if (part_index < (len(parts)-1)) and \
+                        (parts[part_index+1]['type']=='CDSFragment'):
+                    opts['start_pad'] = 0
+                    label_x_offset_c -= part_type_opts.get('start_pad', 0)/2
+        else:
+            # Start padding is zero if there is a 'CDSFragment' to the left
+            if part['type'] in ['CDS', 'CDSFragment']:
+                if (part_index > 0) and \
+                        (parts[part_index-1]['type']=='CDSFragment'):
+                    opts['start_pad'] = 0
+                    label_x_offset_c -= part_type_opts.get('start_pad', 0)/2
+            # End padding is zero if there is a 'CDS' or 'CDSFragment' to the
+            # right
+            if part['type']=='CDSFragment':
+                if (part_index < (len(parts)-1)) and \
+                        (parts[part_index+1]['type'] in ['CDS', 'CDSFragment']):
+                    opts['end_pad'] = 0
+                    label_x_offset_c += part_type_opts.get('end_pad', 0)/2
+
+        # Colors for CDS glyph and label
+        if part['type'] in ['CDS', 'CDSFragment']:
+            if part['name'] in cds_colors:
+                opts['color'] = cds_colors[part['name']]
+            if part['name'] in cds_label_colors:
+                opts['label_color'] = cds_label_colors[part['name']]
+
+        # Some elements in RENDER_OPT can be functions, in which case the
+        # actual value is computed by calling that function with the label width
+        # as an argument.
+        # Label is taken from the labels dictionary, or from the name.
+        label = labels.get(part['name'], part['name'])
+        opts['label'] = label
+        # Method to calculate label_width from "https://stackoverflow.com/\
+        # questions/24581194/matplotlib-text-bounding-box-dimensions"
+        t = ax.text(0,
+                    0,
+                    label,
+                    fontsize=part_type_opts.get('label_size', 7),
+                    fontstyle=part_type_opts.get('label_style', 'normal'))
+        bb = t.get_window_extent(renderer=ax.figure.canvas.get_renderer())
+        bb_datacoords = bb.transformed(ax.transData.inverted())
+        label_width = bb_datacoords.width
+        t.remove()
+
+        # Iterate over options
+        for k, v in part_type_opts.items():
+            if k in opts:
+                # Don't override specific options established above
+                continue
+            elif hasattr(v, '__call__'):
+                # Evaluate option based on label width
+                opts[k] = v(label_width)
+            else:
+                # Special case: label_y_offset is modified depending on the
+                # orientation of the part
+                if k=='label_y_offset':
+                    if ('fwd' in part) and (not part['fwd']):
+                        opts[k] = -v
                     else:
                         opts[k] = v
-            part['opts'] = opts
-            # Save part
-            parts.append(part)
+                # Special case: label_x_offset is modified depending on the
+                # orientation of the part and an offset correction 
+                elif k=='label_x_offset':
+                    if ('fwd' in part) and (not part['fwd']):
+                        opts[k] = -(v + label_x_offset_c)
+                    else:
+                        opts[k] = v + label_x_offset_c
+                else:
+                    opts[k] = v
+
+        # Add options
+        part['opts'] = opts
+
+    # 'CDSFragment' is not a real dnaplotlib part type. Change it to 'CDS'
+    for part in parts:
+        if part['type']=='CDSFragment':
+            part['type'] = 'CDS'
 
     # Add chromosomal locus parts if specified
     if chromosomal_locus is not None:
