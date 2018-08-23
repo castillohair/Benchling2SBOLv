@@ -153,11 +153,11 @@ def plot_sequence(seq=None,
     ignore_names : list, optional
         Names of parts that should not be plotted.
     cds_split_char : str, optionsl
-        If specified, a CDS whose name contains `cds_split_char` as a substring
-        will be split along this substring and shown as a multipart CDS. A
-        multipart CDS looks like a single CDS divided into many fragments, each
-        with its own label and color that can be specified in `labels`,
-        `cds_colors`, and `cds_label_colors`.
+        If specified, a CDS whose name contains `cds_split_char` as a
+        substring will be split along this substring and shown as a
+        multipart CDS. A multipart CDS looks like a single CDS divided into
+        many fragments, each with its own label and color that can be
+        specified in `labels`, `cds_colors`, and `cds_label_colors`.
     cds_colors : dict, optional
         Dictionary with ``name: color`` pairs that specify a CDS' face
         color, when the color is different than the one specified by
@@ -457,5 +457,102 @@ def plot_sequence(seq=None,
     ax.set_yticks([])
     ax.axis('off')
 
+    if savefig is not None:
+        pyplot.savefig(savefig, bbox_inches='tight', dpi=300)
+
+def plot_sequences(seqs=None,
+                   seq_names=None,
+                   start_position=None,
+                   end_position=None,
+                   labels={},
+                   ignore_names=[],
+                   cds_split_char='',
+                   cds_colors={},
+                   cds_label_colors={},
+                   chromosomal_locus=None,
+                   ax_x_extent=250,
+                   ax_x_alignment='center',
+                   ax_ylim=(-15, 15),
+                   hspace=0,
+                   figsize=None,
+                   savefig=None):
+    """
+    Plot several benchling sequences as SBOL visual.
+
+    Parameters
+    ----------
+    seqs : list of benchlingclient.DNASequence
+        List of sequences to be plotted. Can be omitted if `seq_names` is
+        provided.
+    seq_names : list of str, optional
+        Names of the sequences to load and plot. Ignored if `seqs` is
+        specified.
+    hspace : float, optional
+        Vertical space to be kept between sequences. The default is zero,
+        which, if `figsize` has the same aspect ratio than all axes stacked
+        vertically, perfectly stacks the sequences' underlying axes.
+        `hspace` can be positive or negative, which increases or reduces
+        this distance, respectively.
+    figsize : tuple, optional
+        Size of the figure to be created. If not specified, get the width
+        from the current defaults, and calculate the height to match the
+        aspect ratio of all axes stacked vertically.
+    savefig : str, optional
+        If specified, save figure with a filename given by `savefig`.
+
+    Other parameters
+    ----------------
+    All parameters in ``plot_sequence()``, with the exception of `seq`,
+    `seq_name`, and `savefig` can be passed to this function. These will
+    then be directly passed to ``plot_sequence()`` when it is called to
+    plot each diagram.
+
+    """
+    # If seqs is provided, the following is not executed.
+    # If not, load from seq_names
+    if seqs is None:
+        if seq_names is not None:
+            seqs = []
+            for seq_name in seq_names:
+                # Load sequence from benchling
+                seq_list = benchlingclient.DNASequence.list_all(name=seq_name)
+                # Test that only one sequence has been found
+                if len(seq_list) > 1:
+                    raise ValueError("more than one sequence found with name "
+                        "{}".format(seq_name))
+                elif len(seq_list) < 1:
+                    raise ValueError("no sequence with name {} found".\
+                        format(seq_name))
+                seqs.append(seq_list[0])
+        else:
+            # No sequence or sequence name provided, raise exception
+            raise ValueError("seqs or seq_names should be provided")
+
+    # Initialize figure
+    if figsize is None:
+        fig_width = pyplot.rcParams.get('figure.figsize')[0]
+        fig_height = fig_width*(ax_ylim[1] - ax_ylim[0])/ax_x_extent*len(seqs)
+        figsize = (fig_width, fig_height)
+    fig = pyplot.figure(figsize=figsize)
+    # Plot each sequence in a separate axes
+    for seq_index, seq in enumerate(seqs):
+        ax = fig.add_subplot(len(seqs), 1, seq_index + 1)
+        plot_sequence(seq=seq,
+                      ax=ax,
+                      start_position=start_position,
+                      end_position=end_position,
+                      labels=labels,
+                      ignore_names=ignore_names,
+                      cds_split_char=cds_split_char,
+                      cds_colors=cds_colors,
+                      cds_label_colors=cds_label_colors,
+                      chromosomal_locus=chromosomal_locus,
+                      ax_x_extent=ax_x_extent,
+                      ax_x_alignment=ax_x_alignment,
+                      ax_ylim=ax_ylim)
+    # Adjust vertical space between subplots
+    fig.subplots_adjust(hspace=hspace)
+
+    # Save figure if specified
     if savefig is not None:
         pyplot.savefig(savefig, bbox_inches='tight', dpi=300)
