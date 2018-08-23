@@ -123,6 +123,7 @@ def plot_sequence(seq=None,
                   start_position=None,
                   end_position=None,
                   labels={},
+                  ignore_names=[],
                   cds_split_char='',
                   cds_colors={},
                   cds_label_colors={},
@@ -149,6 +150,8 @@ def plot_sequence(seq=None,
         Dictionary with ``name: label`` pairs that specify a glyph's label,
         when the label is different than the name. If a part's name is not
         a key of `labels`, the name will be used as the glyph's label.
+    ignore_names : list, optional
+        Names of parts that should not be plotted.
     cds_split_char : str, optionsl
         If specified, a CDS whose name contains `cds_split_char` as a substring
         will be split along this substring and shown as a multipart CDS. A
@@ -250,6 +253,10 @@ def plot_sequence(seq=None,
             # modified later to make a continuous multipart CDS glyph.
             if cds_split_char and mapping['part']=='CDS':
                 part_names = part_name.split(cds_split_char)
+                # Remove parts flagged to be ignored
+                part_names = [p for p in part_names if p not in ignore_names]
+                if len(part_names)==0:
+                    continue
                 # Reverse if orientation is reverse
                 if annotation.strand==-1:
                     part_names = part_names[::-1]
@@ -275,6 +282,9 @@ def plot_sequence(seq=None,
                     # Save part
                     parts.append(part)
             else:
+                # Check if part name is flagged to be ignored
+                if part_name in ignore_names:
+                    continue
                 # Define new part
                 part  = {}
                 part['type'] = part_type
