@@ -128,7 +128,8 @@ def plot_sequence(seq=None,
                   cds_label_colors={},
                   chromosomal_locus=None,
                   ax=None,
-                  ax_xlim=(0, 250),
+                  ax_x_extent=250,
+                  ax_x_alignment='center',
                   ax_ylim=(-15, 15),
                   savefig=None):
     """
@@ -168,8 +169,12 @@ def plot_sequence(seq=None,
         by `chromosomal_locus` on the left glyph.
     ax : matplotlib.axes, optional
         Axes to draw into.
-    ax_xlim, ax_ylim : tuple-like, optional
-        Axes limits.
+    ax_x_extent : float, optinal
+        Range covered by the x axis limits.
+    ax_x_alignment : {'left', 'center', 'right'}
+        Alignment of the rendered diagram in the x axis.
+    ax_ylim : tuple-like, optional
+        Y axis limits.
     savefig : str, optional
         If specified, save figure with a filename given by `savefig`.
 
@@ -221,7 +226,7 @@ def plot_sequence(seq=None,
         fig, ax = pyplot.subplots()
     # Set axis limits and aspect right away
     # This allows for a more precise estimation of label widths later on
-    ax.set_xlim(ax_xlim)
+    ax.set_xlim((0, ax_x_extent))
     ax.set_ylim(ax_ylim)
     ax.set_aspect('equal')
     
@@ -429,6 +434,15 @@ def plot_sequence(seq=None,
 
     # Redend the DNA to axis
     start, end = dr.renderDNA(ax, parts, dr.SBOL_part_renderers())
+    # Set x axis limits depending on alignment
+    # Note that the extent is always ax_x_extent
+    if ax_x_alignment=='left':
+        ax.set_xlim((start, start + ax_x_extent))
+    if ax_x_alignment=='right':
+        ax.set_xlim((end - ax_x_extent, end))
+    if ax_x_alignment=='center':
+        ax.set_xlim(((start + end - ax_x_extent)/2,
+                     (start + end + ax_x_extent)/2))
     ax.set_xticks([])
     ax.set_yticks([])
     ax.axis('off')
