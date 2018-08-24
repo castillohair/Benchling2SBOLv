@@ -6,7 +6,7 @@ Plot Benchling DNA Sequences as SBOL Visual
 .. _dnaplotlib: https://github.com/VoigtLab/dnaplotlib
 .. _SBOL Visual: http://sbolstandard.org/visual/
 
-This python package uses the `Benchling API Client`_ to read a DNA sequence from benchling, and dnaplotlib_ to instantly plot that sequence as an `SBOL Visual`_ diagram.
+``Benchling2SBOLv`` uses the `Benchling API Client`_ to read a DNA sequence from Benchling, and dnaplotlib_ to instantly plot that sequence as an `SBOL Visual`_ diagram.
 
 Installation
 ============
@@ -105,7 +105,7 @@ Because ``Benchling2SBOLv`` converts Benchling sequence annotations to SBOL glyp
 
 All of these are case sensitive.
 
-However, these can be customized. For example, if all genes are annotated with the type "Gene", the following could be added to a script right after importing ``benchling2sbolv`` but before plotting anything:
+However, these can be customized. For example, if all genes are annotated with the type "Gene", the following could be added to a script right after importing ``Benchling2SBOLv`` but before plotting anything:
 
 .. code:: python
 
@@ -113,9 +113,9 @@ However, these can be customized. For example, if all genes are annotated with t
         {'annotation': {'type': 'Gene'},
          'part': 'CDS'})
 
-This tells ``benchling2sbolv`` to plot annotations with type "Gene" using a CDS glyph as defined by ``dnaplotlib``.
+This tells ``Benchling2SBOLv`` to plot annotations with type "Gene" using a CDS glyph as defined by ``dnaplotlib``.
 
 Future work
 ===========
 
-This API client is still in early alpha, and may not support all use cases yet. Suggestions or bug reports are welcome in the "Issues" section of the github repo.
+This package is still in early alpha, and may not support all use cases yet. Suggestions or bug reports are welcome in the "Issues" section of the github repo.
