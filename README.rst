@@ -25,3 +25,5 @@ Usage
 First, you will need to request an API key from Benchling. You can do that either via email or using the chat function in the Benchling UI.
 
 Check the `examples` folder for more information.
+
+.. image:: examples/example_one_seq.png
