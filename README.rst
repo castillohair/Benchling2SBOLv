@@ -2,12 +2,16 @@
 Plot Benchling DNA Sequences as SBOL Visual
 ===========================================
 
-This python package uses the [Benchling API Client](https://github.com/castillohair/Benchling-API-Client) to read a DNA sequence from benchling, and [dnaplotlib](https://github.com/VoigtLab/dnaplotlib) to instantly plot that sequence as an [SBOL Visual](http://sbolstandard.org/visual/) diagram.
+.. _Benchling API Client: https://github.com/castillohair/Benchling-API-Client
+.. _dnaplotlib: https://github.com/VoigtLab/dnaplotlib
+.. _SBOL Visual: http://sbolstandard.org/visual/
+
+This python package uses the `Benchling API Client`_ to read a DNA sequence from benchling, and dnaplotlib_ to instantly plot that sequence as an `SBOL Visual`_ diagram.
 
 Installation
 ============
 
-Make sure to install [dnaplotlib](https://github.com/VoigtLab/dnaplotlib) and the [Benchling API Client](https://github.com/castillohair/Benchling-API-Client) first.
+Make sure to install dnaplotlib_ and the `Benchling API Client`_ first.
 
 Clone or download this package, and run the following from a terminal:
 
