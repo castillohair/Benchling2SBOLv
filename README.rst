@@ -45,8 +45,8 @@ A sequence from benchling can be automatically plotted with little more than a s
     # Name: pSR58_6, from base 700 to 3000.
     # Promoter 'PcpcG2-172' has a special latex-formatted label so that it
     # looks prettier.
-    # Color of CDSs 'ccaR' and 'sfgfp' are changed to green, and the label of ccaR
-    # to white.
+    # Color of CDSs 'ccaR' and 'sfgfp' are changed to different shades of
+    # green.
     # Save figure as "example_one_seq.png"
     seq = benchling2sbolv.plot_sequence(
         seq_name='pSR58_6',
@@ -96,7 +96,7 @@ Similarly, many sequences can be plotted stacked on top of one another.
 Requirements on Benchling DNA Sequences
 =======================================
 
-Because `Benchling2SBOLv` converts Benchling sequence annotations to SBOL glyphs, it has to assume a few things about the sequence to be plotted:
+Because ``Benchling2SBOLv`` converts Benchling sequence annotations to SBOL glyphs, it has to assume a few things about the sequence to be plotted:
 
 - Genes or CDSs are annotated with the annotation type "CDS".
 - Promoters are annotated with the annotation type "Promoter".
@@ -105,7 +105,7 @@ Because `Benchling2SBOLv` converts Benchling sequence annotations to SBOL glyphs
 
 All of these are case sensitive.
 
-However, these can be customized. For example, if all genes are annotated with the type "Gene", the following could be added to a script right after importing `benchling2sbolv` but before plotting anything:
+However, these can be customized. For example, if all genes are annotated with the type "Gene", the following could be added to a script right after importing ``benchling2sbolv`` but before plotting anything:
 
 .. code:: python
 
@@ -113,7 +113,7 @@ However, these can be customized. For example, if all genes are annotated with t
         {'annotation': {'type': 'Gene'},
          'part': 'CDS'})
 
-This tells `benchling2sbolv` to plot annotations with type "Gene" using a `CDS` glyph as defined by `dnaplotlib`.
+This tells ``benchling2sbolv`` to plot annotations with type "Gene" using a CDS glyph as defined by ``dnaplotlib``.
 
 Future work
 ===========
