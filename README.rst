@@ -29,6 +29,7 @@ The following are examples whose successful execution depend on access to the re
 A sequence from benchling can be automatically plotted with little more than a single function call:
 
 .. code:: python
+
     import matplotlib
     import benchlingclient
     import benchling2sbolv
@@ -63,6 +64,7 @@ A sequence from benchling can be automatically plotted with little more than a s
 Similarly, many sequences can be plotted stacked on top of one another.
 
 .. code:: python
+
     # Import packages
     import benchlingclient
     import benchling2sbolv
