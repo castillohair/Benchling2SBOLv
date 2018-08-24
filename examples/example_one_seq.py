@@ -13,8 +13,8 @@ benchlingclient.LOGIN_KEY = 'write_your_key_here!'
 # Name: pSR58_6, from base 700 to 3000.
 # Promoter 'PcpcG2-172' has a special latex-formatted label so that it
 # looks prettier.
-# Color of CDSs 'ccaR' and 'sfgfp' are changed to green, and the label of ccaR
-# to white.
+# Color of CDSs 'ccaR' and 'sfgfp' are changed to different shades of
+# green.
 # Save figure as "example_one_seq.png"
 seq = benchling2sbolv.plot_sequence(
     seq_name='pSR58_6',
