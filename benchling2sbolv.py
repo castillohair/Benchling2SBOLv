@@ -546,6 +546,8 @@ def plot_sequences(seqs=None,
         fig_height = fig_width*(ax_ylim[1] - ax_ylim[0])/ax_x_extent*len(seqs)
         figsize = (fig_width, fig_height)
     fig = pyplot.figure(figsize=figsize)
+    # Make background transparent
+    fig.patch.set_alpha(0)
     # Plot each sequence in a separate axes
     for seq_index, seq in enumerate(seqs):
         ax = fig.add_subplot(len(seqs), 1, seq_index + 1)
