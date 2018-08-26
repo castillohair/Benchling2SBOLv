@@ -438,9 +438,21 @@ def plot_sequence(seq=None,
         # Save glyphs
         parts = [cl5] + parts + [cl3]
 
+    # Define renderer options
+    linewidth = RENDER_OPT.get('backbone_linewidth', 1)
+    if chromosomal_locus is not None:
+        backbone_pad_left = -2*linewidth
+        backbone_pad_right = -2*linewidth
+    else:
+        backbone_pad_left = 0
+        backbone_pad_right = 0
+
     # Create the DNAplotlib renderer
     dr = dnaplotlib.DNARenderer(
-        linewidth=RENDER_OPT.get('backbone_linewidth', 1))
+        linewidth=linewidth,
+        backbone_pad_left=backbone_pad_left,
+        backbone_pad_right=backbone_pad_right,
+        )
 
     # Redend the DNA to axis
     start, end = dr.renderDNA(ax, parts, dr.SBOL_part_renderers())
