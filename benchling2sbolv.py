@@ -128,6 +128,7 @@ def plot_sequence(seq=None,
                   cds_colors={},
                   cds_label_colors={},
                   chromosomal_locus=None,
+                  chromosomal_locus_pos='left',
                   ax=None,
                   ax_x_extent=250,
                   ax_x_alignment='center',
@@ -169,7 +170,10 @@ def plot_sequence(seq=None,
     chromosomal_locus : str, optional
         If specified, a pair of "ChromosomalLocus" glyphs will be added to
         both sides of the rendered design, and a label with the text given
-        by `chromosomal_locus` on the left glyph.
+        by `chromosomal_locus` on the glyph specified by
+        `chromosomal_locus_pos`.
+    chromosomal_locus_pos : {'left', 'right', 'both', 'none'}, optional
+        Location of the chromosomal locus label.
     ax : matplotlib.axes, optional
         Axes to draw into.
     ax_x_extent : float, optinal
@@ -425,7 +429,8 @@ def plot_sequence(seq=None,
         cl5['name'] = 'cl5_{}'.format(chromosomal_locus)
         cl5['fwd'] = True
         opts = RENDER_OPT.get('5ChromosomalLocus', {}).copy()
-        opts['label'] = chromosomal_locus
+        if chromosomal_locus_pos in ['left', 'both']:
+            opts['label'] = chromosomal_locus
         opts['linewidth'] = RENDER_OPT.get('backbone_linewidth', 1)
         cl5['opts'] = opts
         # 3' glyph
@@ -433,6 +438,8 @@ def plot_sequence(seq=None,
         cl3['type'] = '3ChromosomalLocus'
         cl3['name'] = '3cl_{}'.format(chromosomal_locus)
         opts = RENDER_OPT.get('3ChromosomalLocus', {}).copy()
+        if chromosomal_locus_pos in ['right', 'both']:
+            opts['label'] = chromosomal_locus
         opts['linewidth'] = RENDER_OPT.get('backbone_linewidth', 1)
         cl3['opts'] = opts
         # Save glyphs
@@ -482,6 +489,7 @@ def plot_sequences(seqs=None,
                    cds_colors={},
                    cds_label_colors={},
                    chromosomal_locus=None,
+                   chromosomal_locus_pos='left',
                    ax_x_extent=250,
                    ax_x_alignment='center',
                    ax_ylim=(-15, 15),
@@ -561,6 +569,7 @@ def plot_sequences(seqs=None,
                       cds_colors=cds_colors,
                       cds_label_colors=cds_label_colors,
                       chromosomal_locus=chromosomal_locus,
+                      chromosomal_locus_pos=chromosomal_locus_pos,
                       ax_x_extent=ax_x_extent,
                       ax_x_alignment=ax_x_alignment,
                       ax_ylim=ax_ylim)
