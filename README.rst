@@ -52,7 +52,7 @@ A sequence from benchling can be automatically plotted with little more than a s
         seq_name='pSR58_6',
         start_position=700,
         end_position=3000,
-        labels={'PcpcG2-172': r'$P_{\mathit{cpcG2}-172}$'},
+        glyph_labels={'PcpcG2-172': r'$P_{\mathit{cpcG2}-172}$'},
         cds_colors={'ccaR': '#aaffaa',
                     'sfgfp': '#00FF00',
                     },

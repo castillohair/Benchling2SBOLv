@@ -6,7 +6,7 @@ Benchling2SBOLv
 # Versions should comply with PEP440.  For a discussion on single-sourcing
 # the version across setup.py and the project code, see
 # https://packaging.python.org/en/latest/single_source_version.html
-__version__ = '0.1.0'
+__version__ = '0.2.0'
 
 import copy
 
@@ -36,13 +36,16 @@ ANN_PARTS_MAPPING = [
      ]
 
 # ``RENDER_OPT`` specifies the rendering options for each part type. With the
-# exception of ``backbone_linewidth``, every key is the name of a dnaplotlib
-# part type. Each value given by a key is a dictionary with options to be passed
-# to dnaplotlib, via a part's ``opts`` parameter.
+# exception of ``Sequence``, every key is the name of a dnaplotlib part type.
+# Each value given by a key is a dictionary with options to be passed to
+# dnaplotlib, via a part's ``opts`` parameter.
 # A few caveats:
+#   - the dictionary under the key ``Sequence`` contains general sequence
+#     options, including the backbone linewidth and options for the sequence
+#     label.
 #   - a value with the key ``label`` is added by ``plot_sequence()``, either
 #     from the part's name, or as specified in ``plot_sequence()``'s argument
-#     ``labels`` if present.
+#     ``glyph_labels`` if present.
 #   - options ``label_x_offset`` and ``label_y_offset`` are multiplied by -1 for
 #     a part oriented in reverse.
 #   - options specified in ``RENDER_OPT[key]`` as functions are evaluated with
@@ -55,7 +58,11 @@ ANN_PARTS_MAPPING = [
 #     the same option is specified under ``CDS`` and ``CDSFragment``, the one
 #     under ``CDSFragment`` takes precedence.
 RENDER_OPT = {
-    'backbone_linewidth': 1.5,
+    'Sequence': {'backbone_linewidth': 1.5,
+                 'label_size': 8,
+                 'label_x_offset': -30,
+                 'label_y_offset': 0,
+                 'label_x_alignment': 'left'},
     'Promoter': {'start_pad': lambda lw: max((lw - 10)/2, 0) + 2,
                  'end_pad': lambda lw: max((lw - 10)/2, 0) + 2,
                  'label_y_offset': -4,
@@ -122,12 +129,15 @@ def plot_sequence(seq=None,
                   seq_name=None,
                   start_position=None,
                   end_position=None,
-                  labels={},
+                  seq_label=None,
+                  seq_label_pos='left',
+                  glyph_labels={},
                   ignore_names=[],
                   cds_split_char='',
                   cds_colors={},
                   cds_label_colors={},
                   chromosomal_locus=None,
+                  chromosomal_locus_pos='left',
                   ax=None,
                   ax_x_extent=250,
                   ax_x_alignment='center',
@@ -146,10 +156,17 @@ def plot_sequence(seq=None,
     start_position, end_position : int, optional
         Only annotations in the sequence completely contained by the range
         given by these two parameters will be plotted.
-    labels : dict, optional
+    seq_label : str, optional
+        If specified, the text specified in `seq_label` will be added to either
+        the left or right side of the sequence diagram, depending on the
+        contents of `seq_label_pos`.
+    seq_label_pos : {'left', 'right'}, optional
+        Whether to add the label in `seq_label` to the left or right side of
+        the sequence diagram.
+    glyph_labels : dict, optional
         Dictionary with ``name: label`` pairs that specify a glyph's label,
         when the label is different than the name. If a part's name is not
-        a key of `labels`, the name will be used as the glyph's label.
+        a key of `glyph_labels`, the name will be used as the glyph's label.
     ignore_names : list, optional
         Names of parts that should not be plotted.
     cds_split_char : str, optionsl
@@ -157,7 +174,7 @@ def plot_sequence(seq=None,
         substring will be split along this substring and shown as a
         multipart CDS. A multipart CDS looks like a single CDS divided into
         many fragments, each with its own label and color that can be
-        specified in `labels`, `cds_colors`, and `cds_label_colors`.
+        specified in `glyph_labels`, `cds_colors`, and `cds_label_colors`.
     cds_colors : dict, optional
         Dictionary with ``name: color`` pairs that specify a CDS' face
         color, when the color is different than the one specified by
@@ -169,7 +186,10 @@ def plot_sequence(seq=None,
     chromosomal_locus : str, optional
         If specified, a pair of "ChromosomalLocus" glyphs will be added to
         both sides of the rendered design, and a label with the text given
-        by `chromosomal_locus` on the left glyph.
+        by `chromosomal_locus` on the glyph specified by
+        `chromosomal_locus_pos`.
+    chromosomal_locus_pos : {'left', 'right', 'both', 'none'}, optional
+        Location of the chromosomal locus label.
     ax : matplotlib.axes, optional
         Axes to draw into.
     ax_x_extent : float, optinal
@@ -368,8 +388,8 @@ def plot_sequence(seq=None,
         # Some elements in RENDER_OPT can be functions, in which case the
         # actual value is computed by calling that function with the label width
         # as an argument.
-        # Label is taken from the labels dictionary, or from the name.
-        label = labels.get(part['name'], part['name'])
+        # Label is taken from the glyph_labels dictionary, or from the name.
+        label = glyph_labels.get(part['name'], part['name'])
         opts['label'] = label
         # Method to calculate label_width from "https://stackoverflow.com/\
         # questions/24581194/matplotlib-text-bounding-box-dimensions"
@@ -417,6 +437,16 @@ def plot_sequence(seq=None,
         if part['type']=='CDSFragment':
             part['type'] = 'CDS'
 
+    # Define renderer options
+    sequence_opts = RENDER_OPT.get('Sequence', {})
+    backbone_linewidth = sequence_opts.get('backbone_linewidth', 1)
+    if chromosomal_locus is not None:
+        backbone_pad_left = -2*backbone_linewidth
+        backbone_pad_right = -2*backbone_linewidth
+    else:
+        backbone_pad_left = 0
+        backbone_pad_right = 0
+
     # Add chromosomal locus parts if specified
     if chromosomal_locus is not None:
         # 5' glyph
@@ -425,37 +455,59 @@ def plot_sequence(seq=None,
         cl5['name'] = 'cl5_{}'.format(chromosomal_locus)
         cl5['fwd'] = True
         opts = RENDER_OPT.get('5ChromosomalLocus', {}).copy()
-        opts['label'] = chromosomal_locus
-        opts['linewidth'] = RENDER_OPT.get('backbone_linewidth', 1)
+        if chromosomal_locus_pos in ['left', 'both']:
+            opts['label'] = chromosomal_locus
+        opts['linewidth'] = backbone_linewidth
         cl5['opts'] = opts
         # 3' glyph
         cl3 = {}
         cl3['type'] = '3ChromosomalLocus'
         cl3['name'] = '3cl_{}'.format(chromosomal_locus)
         opts = RENDER_OPT.get('3ChromosomalLocus', {}).copy()
-        opts['linewidth'] = RENDER_OPT.get('backbone_linewidth', 1)
+        if chromosomal_locus_pos in ['right', 'both']:
+            opts['label'] = chromosomal_locus
+        opts['linewidth'] = backbone_linewidth
         cl3['opts'] = opts
         # Save glyphs
         parts = [cl5] + parts + [cl3]
 
-    # Define renderer options
-    linewidth = RENDER_OPT.get('backbone_linewidth', 1)
-    if chromosomal_locus is not None:
-        backbone_pad_left = -2*linewidth
-        backbone_pad_right = -2*linewidth
-    else:
-        backbone_pad_left = 0
-        backbone_pad_right = 0
-
     # Create the DNAplotlib renderer
     dr = dnaplotlib.DNARenderer(
-        linewidth=linewidth,
+        linewidth=backbone_linewidth,
         backbone_pad_left=backbone_pad_left,
         backbone_pad_right=backbone_pad_right,
         )
 
-    # Redend the DNA to axis
+    # Render the DNA to axis
     start, end = dr.renderDNA(ax, parts, dr.SBOL_part_renderers())
+
+    # Add sequence label if specified
+    if seq_label is not None:
+        # Compute offsets
+        seq_label_x_offset = sequence_opts.get('label_x_offset', 0)
+        seq_label_y_offset = sequence_opts.get('label_y_offset', 0)
+        # Compute horizontal position of label
+        if seq_label_pos=='left':
+            x = start + seq_label_x_offset
+        elif seq_label_pos=='right':
+            x = end + seq_label_x_offset
+        # Create label
+        t = ax.text(
+            x,
+            seq_label_y_offset,
+            seq_label,
+            fontsize=sequence_opts.get('label_size', 10),
+            horizontalalignment=sequence_opts.get('label_x_alignment', 'left'),
+            verticalalignment='center',
+            zorder=50,
+            )
+
+        # Modify 'start' or 'end' depending on label
+        bb = t.get_window_extent(renderer=ax.figure.canvas.get_renderer())
+        bb_datacoords = bb.transformed(ax.transData.inverted())
+        start = min(start, bb_datacoords.xmin)
+        end = max(end, bb_datacoords.xmax)
+
     # Set x axis limits depending on alignment
     # Note that the extent is always ax_x_extent
     if ax_x_alignment=='left':
@@ -476,12 +528,15 @@ def plot_sequences(seqs=None,
                    seq_names=None,
                    start_position=None,
                    end_position=None,
-                   labels={},
+                   seq_label=None,
+                   seq_label_pos='left',
+                   glyph_labels={},
                    ignore_names=[],
                    cds_split_char='',
                    cds_colors={},
                    cds_label_colors={},
                    chromosomal_locus=None,
+                   chromosomal_locus_pos='left',
                    ax_x_extent=250,
                    ax_x_alignment='center',
                    ax_ylim=(-15, 15),
@@ -540,6 +595,15 @@ def plot_sequences(seqs=None,
             # No sequence or sequence name provided, raise exception
             raise ValueError("seqs or seq_names should be provided")
 
+    # Arguments `seq_label` and `chromosomal_locus` can be lists
+    # If they're not, convert them into lists
+    if not (hasattr(seq_label, '__iter__') and \
+            (not isinstance(seq_label, str))):
+        seq_label = [seq_label]*len(seqs)
+    if not (hasattr(chromosomal_locus, '__iter__') and \
+            (not isinstance(chromosomal_locus, str))):
+        chromosomal_locus = [chromosomal_locus]*len(seqs)
+
     # Initialize figure
     if figsize is None:
         fig_width = pyplot.rcParams.get('figure.figsize')[0]
@@ -555,12 +619,15 @@ def plot_sequences(seqs=None,
                       ax=ax,
                       start_position=start_position,
                       end_position=end_position,
-                      labels=labels,
+                      seq_label=seq_label[seq_index],
+                      seq_label_pos=seq_label_pos,
+                      glyph_labels=glyph_labels,
                       ignore_names=ignore_names,
                       cds_split_char=cds_split_char,
                       cds_colors=cds_colors,
                       cds_label_colors=cds_label_colors,
-                      chromosomal_locus=chromosomal_locus,
+                      chromosomal_locus=chromosomal_locus[seq_index],
+                      chromosomal_locus_pos=chromosomal_locus_pos,
                       ax_x_extent=ax_x_extent,
                       ax_x_alignment=ax_x_alignment,
                       ax_ylim=ax_ylim)
