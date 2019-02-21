@@ -499,6 +499,7 @@ def plot_sequence(seq=None,
             fontsize=sequence_opts.get('label_size', 10),
             horizontalalignment=sequence_opts.get('label_x_alignment', 'left'),
             verticalalignment='center',
+            zorder=50,
             )
 
         # Modify 'start' or 'end' depending on label
